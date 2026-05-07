@@ -1,5 +1,9 @@
+import { redirect } from "next/navigation";
+import { getSession } from "@/lib/auth";
 import HabitTracker from "./components/HabitTracker";
 
-export default function Home() {
-  return <HabitTracker />;
+export default async function Home() {
+  const session = await getSession();
+  if (!session) redirect("/login");
+  return <HabitTracker userEmail={session.email} />;
 }
