@@ -8,6 +8,7 @@ type Habit = {
   id: string;
   name: string;
   emoji: string;
+  weeklyGoal: number; // 1–7
   completedDays: string[]; // "YYYY-MM-DD"
   createdAt: number;
 };
@@ -44,6 +45,10 @@ function getWeekDates(): string[] {
 function weeklyCount(habit: Habit) {
   const w = getWeekDates();
   return habit.completedDays.filter(d => w.includes(d)).length;
+}
+
+function weeklyPct(habit: Habit) {
+  return Math.min(100, Math.round((weeklyCount(habit) / habit.weeklyGoal) * 100));
 }
 
 function calcStreak(habit: Habit) {
@@ -90,9 +95,10 @@ function Ring({ pct, size = 52, sw = 4, dark }: { pct: number; size?: number; sw
 
 // ─── Add Habit Modal ──────────────────────────────────────────────────────────
 
-function AddModal({ dark, onAdd, onClose }: { dark: boolean; onAdd: (n: string, e: string) => void; onClose: () => void }) {
-  const [name, setName] = useState("");
-  const [emoji, setEmoji] = useState("🏃");
+function AddModal({ dark, onAdd, onClose }: { dark: boolean; onAdd: (n: string, e: string, g: number) => void; onClose: () => void }) {
+  const [name, setName]       = useState("");
+  const [emoji, setEmoji]     = useState("🏃");
+  const [goal, setGoal]       = useState(7);
   const ref = useRef<HTMLInputElement>(null);
   useEffect(() => { ref.current?.focus(); }, []);
 
@@ -102,11 +108,18 @@ function AddModal({ dark, onAdd, onClose }: { dark: boolean; onAdd: (n: string, 
   const txt   = dark ? "text-white" : "text-zinc-800";
   const sub   = dark ? "text-zinc-400" : "text-zinc-500";
 
+  function submit() {
+    if (!name.trim()) return;
+    onAdd(name.trim(), emoji, goal);
+    onClose();
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 animate-fade-in"
       onClick={e => e.target === e.currentTarget && onClose()}>
       <div className={`${card} rounded-2xl shadow-2xl w-full max-w-md p-6 animate-scale-in`}>
         <h2 className={`text-lg font-semibold mb-5 ${txt}`}>Новая привычка</h2>
+
         <p className={`text-xs font-medium mb-2 ${sub}`}>Иконка</p>
         <div className="flex flex-wrap gap-2 mb-4">
           {EMOJI_OPTIONS.map(e => (
@@ -117,18 +130,34 @@ function AddModal({ dark, onAdd, onClose }: { dark: boolean; onAdd: (n: string, 
               }`}>{e}</button>
           ))}
         </div>
+
         <p className={`text-xs font-medium mb-2 ${sub}`}>Название</p>
         <input ref={ref} type="text" value={name} onChange={e => setName(e.target.value)}
-          onKeyDown={e => e.key === "Enter" && name.trim() && (onAdd(name.trim(), emoji), onClose())}
+          onKeyDown={e => e.key === "Enter" && submit()}
           placeholder="Например, утренняя зарядка..."
           className={`w-full px-4 py-2.5 rounded-xl border text-sm outline-none transition-colors ${inp}`}/>
+
+        <p className={`text-xs font-medium mt-4 mb-2 ${sub}`}>Раз в неделю</p>
+        <div className="flex gap-1.5">
+          {[1,2,3,4,5,6,7].map(n => (
+            <button key={n} onClick={() => setGoal(n)}
+              className={`flex-1 py-2 rounded-xl text-sm font-medium transition-all ${
+                goal === n
+                  ? "bg-[#B5845A] text-white"
+                  : dark ? "bg-[#2a2a2a] text-zinc-400 hover:bg-[#333]" : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200"
+              }`}>{n}</button>
+          ))}
+        </div>
+        <p className={`text-xs mt-1.5 ${sub}`}>
+          {goal === 7 ? "Каждый день" : goal === 1 ? "1 раз в неделю" : `${goal} раза в неделю`}
+        </p>
+
         <div className="flex gap-2 mt-5">
           <button onClick={onClose}
             className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-colors ${
               dark ? "bg-[#2a2a2a] text-zinc-300 hover:bg-[#333]" : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
             }`}>Отмена</button>
-          <button onClick={() => { if (name.trim()) { onAdd(name.trim(), emoji); onClose(); } }}
-            disabled={!name.trim()}
+          <button onClick={submit} disabled={!name.trim()}
             className="flex-1 py-2.5 rounded-xl text-sm font-medium text-white bg-[#B5845A] hover:bg-[#9e6e45] disabled:opacity-40 transition-colors">
             Добавить</button>
         </div>
@@ -268,7 +297,7 @@ function StatsTab({ habits, dark }: { habits: Habit[]; dark: boolean }) {
               const prefix = `${year}-${String(mi + 1).padStart(2, "0")}`;
               const count  = filtered.reduce((s, h) => s + h.completedDays.filter(d => d.startsWith(prefix)).length, 0);
               const daysInMonth = new Date(year, mi + 1, 0).getDate();
-              const max    = maxPossible() * daysInMonth;
+              const max    = filtered.reduce((s, h) => s + Math.round(h.weeklyGoal / 7 * daysInMonth), 0) || 1;
               const pct    = max > 0 ? (count / max) * 100 : 0;
               const isFuture = mi > new Date().getMonth();
               return (
@@ -407,7 +436,10 @@ function StatsTab({ habits, dark }: { habits: Habit[]; dark: boolean }) {
             {doneFull.map((h, i) => (
               <div key={h.id} className={`flex items-center gap-3 px-4 py-3 ${i < doneFull.length - 1 ? `border-b ${dark ? "border-[#2a2a2a]" : "border-zinc-100"}` : ""}`}>
                 <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-lg flex-shrink-0 ${dark ? "bg-[#2a2a2a]" : "bg-[#f4f0ec]"}`}>{h.emoji}</div>
-                <span className={`text-sm flex-1 ${txt}`}>{h.name}</span>
+                <div className="flex-1 min-w-0">
+                  <span className={`text-sm ${txt}`}>{h.name}</span>
+                  <p className={`text-xs ${sub}`}>Цель: {h.weeklyGoal === 7 ? "каждый день" : `${h.weeklyGoal}× в неделю`}</p>
+                </div>
                 <div className="w-6 h-6 rounded-full bg-[#B5845A] flex items-center justify-center flex-shrink-0">
                   <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
                 </div>
@@ -424,7 +456,10 @@ function StatsTab({ habits, dark }: { habits: Habit[]; dark: boolean }) {
             {notDone.map((h, i) => (
               <div key={h.id} className={`flex items-center gap-3 px-4 py-3 ${i < notDone.length - 1 ? `border-b ${dark ? "border-[#2a2a2a]" : "border-zinc-100"}` : ""}`}>
                 <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-lg flex-shrink-0 ${dark ? "bg-[#2a2a2a]" : "bg-[#f4f0ec]"}`}>{h.emoji}</div>
-                <span className={`text-sm flex-1 ${dark ? "text-zinc-400" : "text-zinc-400"}`}>{h.name}</span>
+                <div className="flex-1 min-w-0">
+                  <span className={`text-sm text-zinc-400`}>{h.name}</span>
+                  <p className={`text-xs ${sub}`}>Цель: {h.weeklyGoal === 7 ? "каждый день" : `${h.weeklyGoal}× в неделю`}</p>
+                </div>
                 <div className={`w-6 h-6 rounded-full border-2 flex-shrink-0 ${dark ? "border-[#3a3a3a]" : "border-zinc-200"}`}/>
               </div>
             ))}
@@ -503,8 +538,8 @@ export default function HabitTracker() {
     return () => window.removeEventListener("click", fn);
   }, [menuOpen]);
 
-  function addHabit(name: string, emoji: string) {
-    setHabits(p => [{ id: uid(), name, emoji, completedDays: [], createdAt: Date.now() }, ...p]);
+  function addHabit(name: string, emoji: string, weeklyGoal: number) {
+    setHabits(p => [{ id: uid(), name, emoji, weeklyGoal, completedDays: [], createdAt: Date.now() }, ...p]);
   }
   function toggleToday(id: string) {
     const t = today();
@@ -519,7 +554,7 @@ export default function HabitTracker() {
   const completedToday = habits.filter(h => h.completedDays.includes(todayStr)).length;
   const maxStreak   = habits.reduce((m, h) => Math.max(m, calcStreak(h)), 0);
   const totalDone   = habits.reduce((s, h) => s + weeklyCount(h), 0);
-  const totalPoss   = habits.length * 7;
+  const totalPoss   = habits.reduce((s, h) => s + h.weeklyGoal, 0);
   const overallPct  = totalPoss > 0 ? Math.round((totalDone / totalPoss) * 100) : 0;
   const ach         = achievementLabel(overallPct);
   const dayActivity = weekDates.map(d => habits.some(h => h.completedDays.includes(d)));
@@ -599,7 +634,7 @@ export default function HabitTracker() {
                 </div>
                 {habits.map((habit, idx) => {
                   const wc   = weeklyCount(habit);
-                  const pct  = Math.round((wc / 7) * 100);
+                  const pct  = weeklyPct(habit);
                   const done = habit.completedDays.includes(todayStr);
                   const last = idx === habits.length - 1;
 
@@ -611,7 +646,7 @@ export default function HabitTracker() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className={`text-sm font-medium truncate ${txt}`}>{habit.name}</p>
-                        <p className={`text-xs mt-0.5 ${sub}`}>{wc} из 7 дней на этой неделе</p>
+                        <p className={`text-xs mt-0.5 ${sub}`}>{wc} из {habit.weeklyGoal} {habit.weeklyGoal === 7 ? "дней" : habit.weeklyGoal === 1 ? "раза" : "раз"} на этой неделе</p>
                         <div className={`mt-1.5 h-1 rounded-full overflow-hidden ${dark ? "bg-[#2a2a2a]" : "bg-[#e8ddd4]"}`}>
                           <div className="h-full bg-[#B5845A] rounded-full transition-all duration-500" style={{ width: `${pct}%` }}/>
                         </div>
@@ -679,7 +714,7 @@ export default function HabitTracker() {
                   </div>
                   <div>
                     <p className="text-white font-semibold">{ach.emoji} {ach.text}</p>
-                    <p className="text-white/70 text-sm mt-0.5">{totalDone} из {totalPoss} за неделю</p>
+                    <p className="text-white/70 text-sm mt-0.5">{totalDone} из {totalPoss} выполнений за неделю</p>
                     {maxStreak > 0 && (
                       <p className="text-white/80 text-sm mt-1">
                         🔥 Серия: <span className="font-semibold text-white">{maxStreak} {pluralDays(maxStreak)}</span> подряд
