@@ -4,19 +4,21 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
-export default function LoginPage() {
+export default function RegisterPage() {
   const router = useRouter();
   const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
+  const [confirm, setConfirm]   = useState("");
   const [error, setError]       = useState("");
   const [loading, setLoading]   = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    if (password !== confirm) { setError("Пароли не совпадают"); return; }
     setLoading(true);
     try {
-      const res = await fetch("/api/auth/login", {
+      const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
@@ -42,7 +44,7 @@ export default function LoginPage() {
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-zinc-100 p-6">
-          <h2 className="text-base font-semibold text-zinc-800 mb-5">Вход в аккаунт</h2>
+          <h2 className="text-base font-semibold text-zinc-800 mb-5">Создать аккаунт</h2>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-xs font-medium text-zinc-500 mb-1.5">Email</label>
@@ -56,6 +58,14 @@ export default function LoginPage() {
               <label className="block text-xs font-medium text-zinc-500 mb-1.5">Пароль</label>
               <input
                 type="password" value={password} onChange={e => setPassword(e.target.value)}
+                placeholder="Минимум 6 символов" required
+                className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 bg-zinc-50 text-sm text-zinc-800 placeholder-zinc-400 outline-none focus:border-[#B5845A] focus:ring-2 focus:ring-[#B5845A]/10 transition-all"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-zinc-500 mb-1.5">Повторите пароль</label>
+              <input
+                type="password" value={confirm} onChange={e => setConfirm(e.target.value)}
                 placeholder="••••••••" required
                 className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 bg-zinc-50 text-sm text-zinc-800 placeholder-zinc-400 outline-none focus:border-[#B5845A] focus:ring-2 focus:ring-[#B5845A]/10 transition-all"
               />
@@ -71,14 +81,14 @@ export default function LoginPage() {
               type="submit" disabled={loading}
               className="w-full py-2.5 rounded-xl bg-[#B5845A] hover:bg-[#9e6e45] text-white text-sm font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {loading ? "Вход..." : "Войти"}
+              {loading ? "Регистрация..." : "Зарегистрироваться"}
             </button>
           </form>
 
           <p className="text-center text-xs text-zinc-400 mt-4">
-            Нет аккаунта?{" "}
-            <Link href="/register" className="text-[#B5845A] hover:underline font-medium">
-              Зарегистрироваться
+            Уже есть аккаунт?{" "}
+            <Link href="/login" className="text-[#B5845A] hover:underline font-medium">
+              Войти
             </Link>
           </p>
         </div>
