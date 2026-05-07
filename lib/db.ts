@@ -9,10 +9,10 @@ function getClient() {
 }
 
 export const sql: NeonQueryFunction<false, false> = new Proxy(
-  {} as NeonQueryFunction<false, false>,
+  function () {} as unknown as NeonQueryFunction<false, false>,
   {
     apply(_t, _this, args) {
-      return (getClient() as Function).apply(_this, args);
+      return (getClient() as unknown as Function).apply(_this, args);
     },
     get(_t, prop) {
       return (getClient() as any)[prop];
